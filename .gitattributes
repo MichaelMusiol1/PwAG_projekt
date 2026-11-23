@@ -1,0 +1,4 @@
+# build.cmd i run.cmd dzialaja w cmd.exe i w sh - zawsze konce linii LF (sh nie znosi CRLF)
+*.cmd text eol=lf
+*.bmp binary
+*.obj text eol=lf

@@ -66,3 +66,9 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# --- Gra ---
+/bin/
+/screenshots/
+# Modele 3D gry maja rozszerzenie .obj (jak pliki obiektowe kompilatora) - nie ignorowac
+!data/models/*.obj
