@@ -1,0 +1,44 @@
+# =============================================================================
+# Krypta - loch z siatki ASCII. Jedna komórka = "cell" metrów, wiersz 0 = północ.
+# Komendy: dungeon rozmiar_komórki wysokość tekstura_ścian tekstura_podłogi tekstura_sufitu
+#          start x z kąt   (x z zastępuje pole S)   exit mapa_docelowa x z kąt   (dokąd prowadzą pola E)
+#          ambient, fog, light - jak w dolina.txt; grid = dalej tylko siatka
+# Legenda siatki: # ściana  . podłoga  S start  E wyjście  P kolumna
+#   T pochodnia (wisi na sąsiedniej ścianie, nie blokuje przejścia)  K koksownik (stoi na środku pola)
+#   potwory: r szczur  g goblin  s szkielet  B boss
+#   przedmioty: m mała mikstura  M duża mikstura  $ złoto  t topór  k kolczuga
+# =============================================================================
+title Krypta Zapomnianych
+dungeon 3 3.5 mur.bmp posadzka.bmp sufit.bmp
+start 0 0 90   # kierunek patrzenia na starcie; pozycję wyznacza pole S siatki
+exit dolina.txt 100 23.5 180
+ambient 0.14 0.13 0.15
+fog 0.0 0.0 0.0 0.03
+grid
+##################################
+#E..#...........#.......T........#
+#.S.T...r....r..T..P...P...P...P.#
+#...#....m......#.........s....K.#
+##.##...........#..P...P...P...P.#
+ #.#######.######.....s.T....s...#
+ #.#     #.#    ##########.#######
+ #.#     #.#             #.#
+##.###   #.#####   #######.#####
+#....#   #.....#   #.....T.....#
+#.rr.#   #..g..#   #.g.....g...#
+#..r.T...T.....T...T.....M.....#
+#....#   #..g..#   #.g.....g...#
+##.###   #..$..#   #.....T.....#
+ #.#     ###.###   #####.#######
+ #.#       #.#         #.#
+ #.#########.#####     #.#
+ #..m.....r......T.....#.#
+ #######.#######.#######.########
+       #.#     #.#     #.......k#
+   #####.#######.#######.#######
+   #...T...s.T.....sT.....T...#
+   #..P.....P.....P.....P..s..#
+   #.....s....B..........$....#
+   #..P.....P.....P.....P..s..#
+   #...T.....T...M..T.....T...#
+   ############################
