@@ -76,7 +76,7 @@ prop ruina.obj kamien.bmp 100 44 0 1.0 4x0.6
 prop ruina.obj kamien.bmp 82 34 60 1.0 4x0.6
 prop ruina.obj kamien.bmp 118 34 120 1.0 4x0.6
 
-# --- Las i pojedyncze drzewa (rozmieszczone losowo, można dowolnie zmieniać) ---
+# --- Las i pojedyncze drzewa (rozmieszczone losowo, można dowolnie zmieniać byle nie wchodziły na siebie) ---
 prop sosna.obj sosna.bmp 31.2 36.4 300 1.05 0.47
 prop sosna.obj sosna.bmp 18.3 48.4 95 1.15 0.52
 prop drzewo.obj drzewo.bmp 41.0 39.2 270 1.14 0.51
@@ -215,22 +215,22 @@ prop skala.obj skala.bmp 83.1 82.6 162 1.45 1.45
 prop skala.obj skala.bmp 97.4 111.5 239 1.49 1.49
 prop skala.obj skala.bmp 95.3 60.9 145 1.84 1.84
 
-# --- Postacie i przedmioty (używane od etapów 2-4) ---
-npc soltys 30 78 180
-npc zielarka 41 88 270
-npc straznik 95 25 160
-monster wilk 22 30
-monster wilk 40 20
-monster wilk 30 46
-monster wilk 50 36
-monster goblin 86 70
-monster goblin 100 82
-monster goblin 96 98
-monster goblin 110 64
-monster szkielet 92 22
-monster szkielet 108 30
-item mikstura_mala 34 88
-item sztylet 30 84
-item zloto 26 38
-item zloto 104 74
-item mikstura_mala 70 104
+# --- Postacie i przedmioty (używane od etapów 2-4 na razie wywali błąd jak się odkomentuje ale tak chcę żeby to wyglądało) ---
+#npc soltys 30 78 180
+#npc zielarka 41 88 270
+#npc straznik 95 25 160
+#monster wilk 22 30
+#monster wilk 40 20
+#monster wilk 30 46
+#monster wilk 50 36
+#monster goblin 86 70
+#monster goblin 100 82
+#monster goblin 96 98
+#monster goblin 110 64
+#monster szkielet 92 22
+#monster szkielet 108 30
+#item mikstura_mala 34 88
+#item sztylet 30 84
+#item zloto 26 38
+#item zloto 104 74
+#item mikstura_mala 70 104

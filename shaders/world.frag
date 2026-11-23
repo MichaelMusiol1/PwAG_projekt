@@ -1,7 +1,6 @@
 #version 330 core
-// Shader fragmentów sceny 3D. Oświetlenie Phonga (Blinn-Phong) liczone na piksel:
-// słońce (światło kierunkowe) + do 16 świateł punktowych, mgła zależna od odległości.
-// Wzory z lab4 (perVertexLightingSimple.vs) przeniesione z wierzchołków do fragmentów.
+// Wzory z lab4 (perVertexLightingSimple.vs) przeniesione z wierzchołków do fragmentów -
+// podłoga krypty to kwadraty 3 x 3 m, na których światło pochodni z wierzchołków byłoby kanciaste.
 
 in VertexData {
     vec3 worldPos;
@@ -11,24 +10,25 @@ in VertexData {
 
 out vec4 fragColor;
 
-const int MODE_MODEL   = 0;   // model z teksturą
-const int MODE_TERRAIN = 1;   // teren: 4 tekstury mieszane splatmapą
-const int MODE_SPRITE  = 2;   // sprite (billboard), oświetlenie "owinięte" - widoczny z każdej strony
-const int MODE_UNLIT   = 3;   // bez oświetlenia (znaczniki świateł)
-const int MODE_SKY     = 4;   // kopuła nieba przechodząca w mgłę przy horyzoncie
-const int MODE_WATER   = 5;   // woda: falujące normalne bez zmiany geometrii (pomysł z lab4)
+// MODE_* i MAX_LIGHTS muszą się zgadzać z render.cpp i render.h
+const int MODE_MODEL   = 0;
+const int MODE_TERRAIN = 1;
+const int MODE_SPRITE  = 2;   // oświetlenie "owinięte" - sprite nie robi się czarny, gdy słońce jest za nim
+const int MODE_UNLIT   = 3;
+const int MODE_SKY     = 4;
+const int MODE_WATER   = 5;   // falują tylko normalne, geometria stoi (YOINK pomysł z lab4)
 const int MAX_LIGHTS   = 16;
 
 uniform int uMode;
-uniform sampler2D uTex0;   // tekstura główna (teren: splatmapa)
-uniform sampler2D uTex1;   // warstwy terenu
+uniform sampler2D uTex0;   // teren: splatmapa
+uniform sampler2D uTex1;   // teren: warstwy
 uniform sampler2D uTex2;
 uniform sampler2D uTex3;
 uniform sampler2D uTex4;
-uniform float uTiling;     // powtarzanie warstw terenu
-uniform vec3 uTint;        // mnożnik koloru (np. czerwony błysk przy trafieniu)
-uniform float uSpecular;   // siła odbłysku materiału
-uniform float uEmissive;   // świecenie własne (ogień, latarnie)
+uniform float uTiling;
+uniform vec3 uTint;
+uniform float uSpecular;
+uniform float uEmissive;
 
 uniform vec3 uCamPos;
 uniform vec3 uSunDir;
@@ -47,20 +47,19 @@ vec3 lighting(vec3 albedo, vec3 N, float specStrength, bool wrap)
     vec3 V = normalize(uCamPos - fin.worldPos);
     vec3 color = uAmbient * albedo;
 
-    // światło kierunkowe (słońce)
     vec3 L = normalize(-uSunDir);
     float ndl = wrap ? dot(N, L) * 0.5 + 0.5 : max(dot(N, L), 0.0);
     vec3 H = normalize(L + V);
     float spec = ndl > 0.0 ? pow(max(dot(N, H), 0.0), 32.0) * specStrength : 0.0;
     color += uSunColor * (albedo * ndl + vec3(spec));
 
-    // światła punktowe z tłumieniem do zera na granicy zasięgu
     for (int i = 0; i < uLightCount; ++i) {
         vec3 d = uLightPos[i] - fin.worldPos;
         float dist = length(d);
         L = d / max(dist, 0.0001);
         float x = dist / uLightRange[i];
-        float att = clamp(1.0 - x * x, 0.0, 1.0);   // łagodny spadek, zero na granicy zasięgu
+        // łagodnie do zera na granicy zasięgu, bez ostrej krawędzi plamy światła
+        float att = clamp(1.0 - x * x, 0.0, 1.0);
         att *= att;
         ndl = wrap ? dot(N, L) * 0.5 + 0.5 : max(dot(N, L), 0.0);
         H = normalize(L + V);
@@ -82,7 +81,7 @@ void main()
     vec3 N = normalize(fin.normal);
 
     if (uMode == MODE_TERRAIN) {
-        // splatmapa: R, G, B = udział warstw 2..4, reszta = warstwa 1
+        // R, G, B = udział warstw 2..4, reszta to warstwa 1
         vec3 w = texture(uTex0, fin.uv).rgb;
         vec2 tuv = fin.uv * uTiling;
         float base = clamp(1.0 - (w.r + w.g + w.b), 0.0, 1.0);
@@ -116,7 +115,7 @@ void main()
 
     vec4 texel = texture(uTex0, fin.uv);
     if (texel.a < 0.5)
-        discard;   // przezroczyste piksele (magenta w BMP) - discard jak w lab5
+        discard;   // magenta z BMP; discard jak w lab5, bo bez sortowania blending by się sypał
     vec3 albedo = texel.rgb * uTint;
 
     if (uMode == MODE_UNLIT) {

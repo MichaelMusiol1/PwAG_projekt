@@ -1,6 +1,3 @@
-// render.cpp - implementacja grafiki (opis funkcji w render.h).
-// Wykorzystuje kod z labów: extensionSetup() (lab3-6), readShader()/setShaders() (lab3, lab6),
-// getBMPData() (lab2, poprawiony), loadOBJ() + buildIndexedMeshMap() (lab3), materiały i światła (lab2).
 #include "render.h"
 #include "font8x8.h"
 
@@ -27,10 +24,9 @@ GL_FUNCTION_LIST(X)
 
 namespace {
 
-// Tryby shadera world.frag
+// muszą się zgadzać z MODE_* w world.frag
 enum Mode { MODE_MODEL = 0, MODE_TERRAIN = 1, MODE_SPRITE = 2, MODE_UNLIT = 3, MODE_SKY = 4, MODE_WATER = 5 };
 
-// Program shadera sceny 3D z lokalizacjami uniformów (pobierane raz)
 struct WorldProgram {
     GLuint id = 0;
     GLint model, view, proj, uvRect, mode, tint, specular, tiling, camPos;
@@ -39,9 +35,9 @@ struct WorldProgram {
 };
 struct UiProgram { GLuint id = 0; GLint screen, color; };
 
-WorldProgram gWorld;     // world.vert + world.frag
-WorldProgram gExplode;   // world.vert + explode.geom + world.frag
-UiProgram gUi;           // ui.vert + ui.frag
+WorldProgram gWorld;
+WorldProgram gExplode;
+UiProgram gUi;
 GLuint gCurrentProgram = 0;
 
 Texture gWhite, gFont;
@@ -51,7 +47,6 @@ GLuint gUiVao = 0, gUiVbo = 0;
 std::map<std::string, Texture> gTextures;
 std::map<std::string, Mesh> gModels;
 
-// Stan bieżącej klatki
 struct Frame {
     glm::mat4 view{1.0f}, proj{1.0f};
     glm::vec3 camPos{0.0f};
@@ -63,9 +58,7 @@ void useProgram(GLuint id) {
     if (gCurrentProgram != id) { glUseProgram(id); gCurrentProgram = id; }
 }
 
-// ---------------------------------------------------------------------------
-// Shadery (readShader + setShaders z labów, z kontrolą błędów)
-// ---------------------------------------------------------------------------
+// readShader() i setShaders() z lab3 i lab6, z wypisywaniem logów błędów
 std::string readFile(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
     if (!f) return "";
@@ -135,10 +128,7 @@ void initWorldProgram(WorldProgram& p) {
     for (int i = 0; i < 5; ++i) glUniform1i(loc(samplers[i]), i);
 }
 
-// ---------------------------------------------------------------------------
-// Siatki pomocnicze
-// ---------------------------------------------------------------------------
-Mesh makeGridQuad(int n) {   // kwadrat x -0.5..0.5, y 0..1 podzielony na n x n
+Mesh makeGridQuad(int n) {   // jak quadMesh, ale podzielony na n x n
     std::vector<Vertex> v;
     std::vector<unsigned> idx;
     for (int j = 0; j <= n; ++j)
@@ -171,7 +161,7 @@ Mesh makeCube() {
     return createMesh(v, idx);
 }
 
-Mesh makeSphere(int segments, int rings) {   // promień 1, u wokół osi Y, v od dołu (0) do góry (1)
+Mesh makeSphere(int segments, int rings) {   // promień 1; v = 0 na dole, 1 na górze (tekstura nieba)
     std::vector<Vertex> v;
     std::vector<unsigned> idx;
     for (int r = 0; r <= rings; ++r) {
@@ -190,13 +180,13 @@ Mesh makeSphere(int segments, int rings) {   // promień 1, u wokół osi Y, v o
     return createMesh(v, idx);
 }
 
-Mesh makePlane() {   // poziomy kwadrat x,z -0.5..0.5, normalna +Y
+Mesh makePlane() {
     std::vector<Vertex> v = {{{-0.5f, 0, -0.5f}, {0, 1, 0}, {0, 0}}, {{0.5f, 0, -0.5f}, {0, 1, 0}, {1, 0}},
                              {{0.5f, 0, 0.5f}, {0, 1, 0}, {1, 1}},   {{-0.5f, 0, 0.5f}, {0, 1, 0}, {0, 1}}};
     return createMesh(v, {0, 1, 2, 0, 2, 3});
 }
 
-Texture makeChecker() {   // zastępstwo za brakującą teksturę
+Texture makeChecker() {   // różowo-czarna, żeby brak tekstury od razu rzucał się w oczy
     unsigned char px[8 * 8 * 4];
     for (int i = 0; i < 64; ++i) {
         bool on = ((i % 8) / 2 + (i / 8) / 2) % 2 == 0;
@@ -206,7 +196,6 @@ Texture makeChecker() {   // zastępstwo za brakującą teksturę
     return createTexture(8, 8, px, true);
 }
 
-// Atlas czcionki: 16 x 8 komórek 8x10 px; wiersz 0 tekstury = dół obrazka
 Texture makeFontAtlas() {
     const int cols = 16, rows = 8, w = cols * FONT_CELL_W, h = rows * FONT_CELL_H;
     std::vector<unsigned char> px(w * h * 4, 0);
@@ -216,7 +205,7 @@ Texture makeFontAtlas() {
         for (int r = 0; r < FONT_CELL_H; ++r)
             for (int c = 0; c < FONT_CELL_W; ++c)
                 if (FONT_GLYPHS[g][r] >> c & 1) {
-                    int y = h - 1 - (cy + r);   // odwrócenie: obraz od góry -> tekstura od dołu
+                    int y = h - 1 - (cy + r);   // glif od góry, tekstura od dołu
                     unsigned char* p = &px[(y * w + cx + c) * 4];
                     p[0] = p[1] = p[2] = p[3] = 255;
                 }
@@ -224,13 +213,10 @@ Texture makeFontAtlas() {
     return createTexture(w, h, px.data(), true);
 }
 
-// ---------------------------------------------------------------------------
-// Pomocnicze do BMP
-// ---------------------------------------------------------------------------
 uint32_t rd32(const unsigned char* p) { return p[0] | p[1] << 8 | p[2] << 16 | uint32_t(p[3]) << 24; }
 uint16_t rd16(const unsigned char* p) { return uint16_t(p[0] | p[1] << 8); }
 
-unsigned char channel(uint32_t pixel, uint32_t mask) {   // wyciąga kanał wg maski bitowej, skaluje do 0..255
+unsigned char channel(uint32_t pixel, uint32_t mask) {   // kanał wg maski bitowej, przeskalowany do 0..255
     if (mask == 0) return 0;
     int shift = 0;
     while (!(mask >> shift & 1)) ++shift;
@@ -238,7 +224,6 @@ unsigned char channel(uint32_t pixel, uint32_t mask) {   // wyciąga kanał wg m
     return (unsigned char)(bits == 255 ? value : value * 255 / bits);
 }
 
-// Dekodowanie UTF-8 -> kod Unicode
 unsigned nextCodepoint(const std::string& s, size_t& i) {
     unsigned char c = (unsigned char)s[i++];
     if (c < 0x80) return c;
@@ -255,7 +240,7 @@ int glyphIndex(unsigned cp) {
     return '?' - FONT_FIRST_ASCII;
 }
 
-// Rysuje trójkąty 2D: dane = (x, y, u, v) na wierzchołek
+// data: (x, y, u, v) na wierzchołek
 void drawUiTriangles(const std::vector<float>& data, GLuint texture, glm::vec4 color) {
     if (data.empty()) return;
     useProgram(gUi.id);
@@ -275,7 +260,6 @@ void pushQuad(std::vector<float>& d, float x, float y, float w, float h, glm::ve
     d.insert(d.end(), q, q + 24);
 }
 
-// Wspólne ustawienia rysowania obiektu shaderem sceny
 void setObject(const WorldProgram& p, Mode mode, const glm::mat4& model, glm::vec4 uvRect,
                glm::vec3 tint, float specular, float emissive = 0.0f) {
     useProgram(p.id);
@@ -297,7 +281,8 @@ void bindTexture(int unit, const Texture& tex) {
     glBindTexture(GL_TEXTURE_2D, tex.id ? tex.id : gWhite.id);
 }
 
-glm::mat4 spriteMatrix(glm::vec3 feet, glm::vec2 size) {   // billboard: obrót wokół Y w stronę kamery
+// obrót tylko wokół Y - patrząc z góry, postać nie kładzie się na plecach
+glm::mat4 spriteMatrix(glm::vec3 feet, glm::vec2 size) {
     glm::vec3 toCam = gFrame.camPos - feet;
     float angle = std::atan2(toCam.x, toCam.z);
     glm::mat4 m = glm::translate(glm::mat4(1.0f), feet);
@@ -307,6 +292,7 @@ glm::mat4 spriteMatrix(glm::vec3 feet, glm::vec2 size) {   // billboard: obrót 
 
 glm::vec4 frameRect(const Texture& sheet, int col, int row, int cols, int rows) {
     float fw = 1.0f / cols, fh = 1.0f / rows;
+    // pół teksela marginesu, inaczej na krawędzi klatki widać pasek sąsiedniej
     float insetU = sheet.width ? 0.5f / sheet.width : 0.0f, insetV = sheet.height ? 0.5f / sheet.height : 0.0f;
     float u0 = col * fw, v0 = 1.0f - (row + 1) * fh;   // wiersz 0 = górny wiersz obrazka
     return {u0 + insetU, v0 + insetV, fw - 2 * insetU, fh - 2 * insetV};
@@ -314,9 +300,6 @@ glm::vec4 frameRect(const Texture& sheet, int col, int row, int cols, int rows) 
 
 } // namespace
 
-// ===========================================================================
-// Kamera
-// ===========================================================================
 glm::vec3 yawToDir(float yawDeg) {
     float r = glm::radians(yawDeg);
     return {std::sin(r), 0.0f, -std::cos(r)};
@@ -334,9 +317,6 @@ glm::vec3 Camera::right() const {
 }
 glm::mat4 Camera::view() const { return glm::lookAt(pos, pos + forward(), glm::vec3(0, 1, 0)); }
 
-// ===========================================================================
-// Inicjalizacja
-// ===========================================================================
 bool initRenderer() {
     std::printf("OpenGL: %s\nKarta:  %s\nGLSL:   %s\n", (const char*)glGetString(GL_VERSION),
                 (const char*)glGetString(GL_RENDERER), (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION));
@@ -372,7 +352,6 @@ bool initRenderer() {
     gSphere = makeSphere(32, 16);
     gPlane = makePlane();
 
-    // Bufor dla rysowania 2D: (x, y, u, v) na wierzchołek, wypełniany przy każdym wywołaniu
     glGenVertexArrays(1, &gUiVao);
     glBindVertexArray(gUiVao);
     glGenBuffers(1, &gUiVbo);
@@ -383,13 +362,11 @@ bool initRenderer() {
     glEnableVertexAttribArray(1);
     glBindVertexArray(0);
 
-    glEnable(GL_PROGRAM_POINT_SIZE);   // rozmiar cząsteczek ustawia shader geometrii
+    glEnable(GL_PROGRAM_POINT_SIZE);   // bez tego gl_PointSize z explode.geom jest ignorowany -3h z życia
     return true;
 }
 
-// ===========================================================================
-// Tekstury
-// ===========================================================================
+// Na bazie getBMPData() z lab2, poprawione: wyrównanie wierszy, 32-bit, przezroczystość
 bool loadBMP(const std::string& path, int& width, int& height, std::vector<unsigned char>& rgba) {
     std::ifstream file(path, std::ios::binary);
     if (!file) return false;
@@ -410,7 +387,7 @@ bool loadBMP(const std::string& path, int& width, int& height, std::vector<unsig
     width = w;
     height = std::abs(h);
 
-    // Maski kolorów dla 32-bit (domyślnie BGRA, GIMP zapisuje maski w nagłówku)
+    // 32-bit: domyślnie BGRA, ale GIMP zapisuje własne maski kanałów w nagłówku
     uint32_t mask[4] = {0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000};
     if (bpp == 32 && compression == 3 && d.size() >= 70) {
         mask[0] = rd32(&d[54]);
@@ -430,7 +407,7 @@ bool loadBMP(const std::string& path, int& width, int& height, std::vector<unsig
         const unsigned char* row = &d[offset + stride * (topDown ? height - 1 - y : y)];
         for (int x = 0; x < width; ++x) {
             unsigned char* o = &rgba[(size_t(y) * width + x) * 4];
-            if (bpp == 24) {   // BMP przechowuje BGR - zamiana na RGB (jak w lab2)
+            if (bpp == 24) {   // BMP trzyma BGR
                 o[0] = row[x * 3 + 2];
                 o[1] = row[x * 3 + 1];
                 o[2] = row[x * 3 + 0];
@@ -443,7 +420,7 @@ bool loadBMP(const std::string& path, int& width, int& height, std::vector<unsig
         }
     }
     for (size_t i = 0; i < rgba.size(); i += 4) {
-        if (bpp == 32 && !anyAlpha) rgba[i + 3] = 255;   // 32-bit bez kanału alfa
+        if (bpp == 32 && !anyAlpha) rgba[i + 3] = 255;   // niektóre programy zapisują alfa = 0 w całym obrazku
         if (rgba[i] > 250 && rgba[i + 1] < 5 && rgba[i + 2] > 250)   // magenta = przezroczysty
             rgba[i] = rgba[i + 1] = rgba[i + 2] = rgba[i + 3] = 0;
     }
@@ -463,7 +440,7 @@ Texture createTexture(int width, int height, const unsigned char* rgba, bool pix
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    } else {   // filtrowanie i powtarzanie jak w lab2 (zad. 2.1) + mipmapy
+    } else {
         glGenerateMipmap(GL_TEXTURE_2D);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -489,20 +466,17 @@ const Texture& getTexture(const std::string& file, bool pixelArt) {
     return gTextures[key] = tex;
 }
 
-// ===========================================================================
-// Siatki
-// ===========================================================================
 Mesh createMesh(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices) {
     Mesh m;
     if (vertices.empty() || indices.empty()) return m;
     glGenVertexArrays(1, &m.vao);
     glBindVertexArray(m.vao);
 
-    glGenBuffers(1, &m.vbo);   // sprzętowy bufor wierzchołków
+    glGenBuffers(1, &m.vbo);
     glBindBuffer(GL_ARRAY_BUFFER, m.vbo);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
 
-    glGenBuffers(1, &m.ibo);   // sprzętowy bufor indeksów
+    glGenBuffers(1, &m.ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m.ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned), indices.data(), GL_STATIC_DRAW);
 
@@ -518,8 +492,8 @@ Mesh createMesh(const std::vector<Vertex>& vertices, const std::vector<unsigned>
     return m;
 }
 
-// Loader OBJ z labów (lab3, lab6), rozszerzony: ściany trójkątne i wielokątne, formaty
-// v/vt/vn, v//vn, v/vt, v. Indeksowanie wierzchołków przez std::map jak buildIndexedMeshMap() z lab3.
+// Loader OBJ z lab3 i lab6, rozszerzony o wielokąty i formaty v/vt/vn, v//vn, v/vt, v.
+// Indeksowanie wierzchołków przez std::map jak buildIndexedMeshMap() z lab3.
 Mesh loadOBJ(const std::string& path) {
     FILE* file = std::fopen(path.c_str(), "r");
     if (!file) {
@@ -549,6 +523,7 @@ Mesh loadOBJ(const std::string& path) {
             std::sscanf(line + 3, "%f %f %f", &n.x, &n.y, &n.z);
             normals.push_back(n);
         } else if (line[0] == 'f' && line[1] == ' ') {
+            // Wielokąt z ponad 32 wierzchołkami zostanie po cichu obcięty. Kiedyś walnie.
             int corner[32][3];
             int count = 0;
             for (char* tok = std::strtok(line + 2, " \t\r\n"); tok && count < 32; tok = std::strtok(nullptr, " \t\r\n")) {
@@ -559,7 +534,7 @@ Mesh loadOBJ(const std::string& path) {
                     if (*p != '/') t = std::strtol(p, &p, 10);
                     if (*p == '/') n = std::strtol(p + 1, &p, 10);
                 }
-                // indeksy ujemne liczą się od końca listy
+                // ujemne indeksy liczą się od końca listy (tak, OBJ na to pozwala o.O)
                 if (v < 0) v += int(positions.size()) + 1;
                 if (t < 0) t += int(uvs.size()) + 1;
                 if (n < 0) n += int(normals.size()) + 1;
@@ -574,7 +549,7 @@ Mesh loadOBJ(const std::string& path) {
                 ++count;
             }
             ++faceNumber;
-            for (int k = 1; ok && k + 1 < count; ++k) {   // wielokąt -> wachlarz trójkątów
+            for (int k = 1; ok && k + 1 < count; ++k) {   // wachlarz trójkątów - dobry tylko dla wypukłych
                 const int* tri[3] = {corner[0], corner[k], corner[k + 1]};
                 glm::vec3 faceNormal = glm::cross(positions[tri[1][0] - 1] - positions[tri[0][0] - 1],
                                                   positions[tri[2][0] - 1] - positions[tri[0][0] - 1]);
@@ -617,9 +592,6 @@ const Mesh& getModel(const std::string& file) {
 const Mesh& quadMesh() { return gQuad; }
 const Mesh& cubeMesh() { return gCube; }
 
-// ===========================================================================
-// Scena 3D
-// ===========================================================================
 void setWireframe(bool on) { gFrame.wireframe = on; }
 
 void beginScene(const Camera& cam, const SceneSettings& s, int width, int height) {
@@ -637,7 +609,6 @@ void beginScene(const Camera& cam, const SceneSettings& s, int width, int height
     gFrame.camPos = cam.pos;
     gFrame.time = s.time;
 
-    // Światła punktowe spakowane do tablic dla shadera
     int count = std::min(int(s.lights.size()), MAX_LIGHTS);
     glm::vec3 pos[MAX_LIGHTS], color[MAX_LIGHTS];
     float range[MAX_LIGHTS];
@@ -695,7 +666,7 @@ void drawSpriteExplode(const Texture& sheet, glm::vec3 feet, glm::vec2 size, int
     glUniform1f(gExplode.explodeT, t);
     glUniform3f(gExplode.explodeOrigin, feet.x, feet.y + size.y * 0.5f, feet.z);
     bindTexture(0, sheet);
-    drawElements(gSpriteGrid);   // gęsta siatka -> więcej cząsteczek
+    drawElements(gSpriteGrid);   // gęstsza siatka = więcej cząsteczek
 }
 
 void drawSky(const Texture& sky) {
@@ -719,9 +690,9 @@ void drawWater(glm::vec3 center, float size) {
 }
 
 void drawLightMarker(glm::vec3 pos, glm::vec3 color, float size) {
-    glDisable(GL_DEPTH_TEST);   // znacznik debugowy - widoczny także wewnątrz latarni i za ścianą
+    glDisable(GL_DEPTH_TEST);   // widoczny także wewnątrz latarni i za ścianą
     bindTexture(0, gWhite);
-    // cienka czarna obwódka (nieco większa kula pod spodem) - znacznik widać także na tle ognia
+    // czarna obwódka (większa kula pod spodem), żeby znacznik było widać na tle ognia
     glm::mat4 sphere = glm::translate(glm::mat4(1.0f), pos);
     setObject(gWorld, MODE_UNLIT, glm::scale(sphere, glm::vec3(size * 1.12f)), glm::vec4(0, 0, 1, 1), glm::vec3(0.0f), 0.0f);
     drawElements(gSphere);
@@ -730,9 +701,6 @@ void drawLightMarker(glm::vec3 pos, glm::vec3 color, float size) {
     glEnable(GL_DEPTH_TEST);
 }
 
-// ===========================================================================
-// 2D
-// ===========================================================================
 void begin2D(int width, int height) {
     glViewport(0, 0, width, height);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);   // UI zawsze wypełnione, także w trybie siatki
@@ -819,12 +787,10 @@ float drawTextWrapped(const std::string& text, float x, float y, float maxWidth,
     return lines * lineHeight;
 }
 
-// ===========================================================================
-// Zrzut ekranu (BMP 24-bit; kolejność wierszy OpenGL = kolejność BMP, od dołu)
-// ===========================================================================
+// glReadPixels i BMP mają wiersze od dołu, więc nic nie trzeba odwracać
 bool saveScreenshot(const std::string& path, int width, int height) {
     std::vector<unsigned char> px(size_t(width) * height * 3);
-    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);   // wiersze RGB nie muszą mieć długości podzielnej przez 4
     glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, px.data());
 
     std::error_code ec;

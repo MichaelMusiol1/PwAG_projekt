@@ -1,7 +1,4 @@
-// game.cpp - rdzeń rozgrywki: start gry, ruch gracza i kamera, kolizje, interakcja (E),
-// przejścia między lokacjami, światła dynamiczne (latarnia gracza), HUD, ekrany pomocy
-// i śmierci oraz klawisze debug (F2 siatka, F3 wolna kamera, F4 światła, F12 zrzut).
-// Miejsca podpięcia kolejnych etapów oznaczone są komentarzem [etap N].
+// Miejsca podpięcia kolejnych etapów są oznaczone komentarzem [etap N].
 #include "game.h"
 
 #include <algorithm>
@@ -16,7 +13,7 @@ namespace {
 const float EYE_HEIGHT = 1.7f;
 const float PLAYER_RADIUS = 0.4f;
 const float WALK_SPEED = 4.0f, RUN_SPEED = 7.5f;   // m/s
-const float TURN_SPEED = 120.0f;                    // stopnie/s (strzałki)
+const float TURN_SPEED = 120.0f;                    // stopnie/s
 const float MOUSE_SENSITIVITY = 0.12f;              // stopnie na piksel
 const float FREE_CAMERA_SPEED = 12.0f;
 
@@ -45,7 +42,7 @@ void showBanner(const std::string& text) {
 void travel(const Portal& portal) {
     int target = levelIndex(portal.target);
     if (target < 0) {
-        addMessage("To przejście nigdzie nie prowadzi.");
+        addMessage("To przejście nigdzie nie prowadzi."); // Widziałem to więcej razy niż chciałbym przyznać T-T
         return;
     }
     game.current = target;
@@ -54,12 +51,12 @@ void travel(const Portal& portal) {
     game.player.pos = glm::vec3(pos.x, loc.groundHeight(pos.x, pos.y), pos.y);
     game.player.yaw = portal.toStart ? loc.startYaw : portal.targetYaw;
     game.player.pitch = 0.0f;
-    game.zone = loc.zoneAt(pos.x, pos.y);   // baner pokazuje nazwę lokacji, strefa dopiero przy zmianie
+    game.zone = loc.zoneAt(pos.x, pos.y);   // inaczej updateZone od razu przykryje baner z nazwą lokacji
     showBanner(loc.title);
     addMessage("Wchodzisz: " + loc.title);
 }
 
-// Obrót: mysz, strzałki w lewo/prawo, PgUp/PgDn w górę/w dół (jak w MM7)
+// PgUp/PgDn patrzą w górę i w dół
 void turn(const Input& in, float dt, float& yaw, float& pitch, float maxPitch) {
     yaw += in.mouseDX * MOUSE_SENSITIVITY;
     pitch -= in.mouseDY * MOUSE_SENSITIVITY;
@@ -70,7 +67,6 @@ void turn(const Input& in, float dt, float& yaw, float& pitch, float maxPitch) {
     pitch = std::clamp(pitch, -maxPitch, maxPitch);
 }
 
-// Ruch gracza: obrót, chodzenie z kolizjami, kołysanie kamery
 void updatePlayer(Input& in, float dt) {
     Player& p = game.player;
     turn(in, dt, p.yaw, p.pitch, 89.0f);
@@ -104,11 +100,10 @@ void updateFreeCamera(Input& in, float dt) {
     if (in.down['c']) c.pos.y -= speed;
 }
 
-// Interakcja: podpowiedź pod celownikiem i klawisz E. Kolejność: NPC, przedmiot, przejście.
+// E robi pierwszą pasującą rzecz: rozmowa, podniesienie, przejście
 void updateInteraction(Input& in) {
     game.hint.clear();
-    // [etap 4] game.hint = talkHint(); if (!game.hint.empty()) { if (in.pressed['e']) tryTalk(); return; }
-    // [etap 2] game.hint = pickupHint(); if (!game.hint.empty()) { if (in.pressed['e']) tryPickup(); return; }
+    // Na pewno tu [etap 4] [etap 2]
     const Portal* portal = game.level().loc.portalNear(game.player.pos, 0.8f);
     if (portal) {
         int target = levelIndex(portal->target);
@@ -126,7 +121,7 @@ void updateZone() {
     }
 }
 
-// Klawisze działające na każdym ekranie
+// Działają na każdym ekranie, także w pauzie
 void updateDebugKeys(Input& in) {
     if (in.specialPressed[GLUT_KEY_F2]) {
         game.wireframe = !game.wireframe;
@@ -148,15 +143,13 @@ void updateDebugKeys(Input& in) {
     }
 }
 
-// Latarnia gracza - źródło światła poruszające się razem z nim, pionowo pod kamerą.
-// W dzień na zewnątrz świeci słabiej, w krypcie mocniej.
+// Latarnia jest 0.6 m pod kamerą, jak trzymana w ręce - światło z wysokości oczu wygląda płasko.
 PointLight lanternLight() {
     glm::vec3 pos = playerCamera().pos - glm::vec3(0.0f, 0.6f, 0.0f);
     if (game.level().loc.outdoor) return {pos, glm::vec3(1.0f, 0.85f, 0.6f) * 0.45f, 8.0f};
     return {pos, {1.1f, 0.95f, 0.75f}, 12.0f};
 }
 
-// ----------------------------- HUD i ekrany ---------------------------------
 void drawShadowText(const std::string& text, float x, float y, float scale, glm::vec4 color) {
     drawText(text, x + scale, y + scale, scale, glm::vec4(0, 0, 0, color.a * 0.8f));
     drawText(text, x, y, scale, color);
@@ -179,33 +172,29 @@ void drawHud(const Input& in) {
     }
     if (!game.hint.empty()) drawCentered(game.hint, h * 0.5f + 28, 2.0f, YELLOW, in.width);
 
-    // HP i doświadczenie
     float bx = 20, by = h - 62, bw = 280;
     drawRect(bx - 4, by - 4, bw + 8, 52, glm::vec4(0, 0, 0, 0.55f));
     drawRect(bx, by, bw, 22, glm::vec4(0.25f, 0.05f, 0.05f, 1.0f));
     drawRect(bx, by, bw * std::max(0, p.hp) / float(p.maxHp), 22, glm::vec4(0.75f, 0.1f, 0.1f, 1.0f));
     drawShadowText("HP " + std::to_string(std::max(0, p.hp)) + "/" + std::to_string(p.maxHp), bx + 6, by + 3, 2.0f, WHITE);
-    float xpNeeded = 100.0f * p.level;
+    float xpNeeded = 100.0f * p.level;   // wzór wymyślony w 5 sekund, do balansu w etapie 5
     drawRect(bx, by + 28, bw, 8, glm::vec4(0.15f, 0.15f, 0.05f, 1.0f));
     drawRect(bx, by + 28, bw * std::min(1.0f, p.xp / xpNeeded), 8, glm::vec4(0.85f, 0.7f, 0.2f, 1.0f));
     drawShadowText("Poziom " + std::to_string(p.level) + "   Złoto: " + std::to_string(p.gold), bx + bw + 16, by + 3, 2.0f, YELLOW);
 
-    // dziennik zdarzeń - najnowszy na dole
     float my = by - 32;
     for (int i = int(game.messages.size()) - 1; i >= 0; --i, my -= 24) {
         float alpha = std::clamp(8.0f - game.messages[i].age, 0.0f, 1.0f);
         drawShadowText(game.messages[i].text, 20, my, 2.0f, glm::vec4(1, 1, 1, alpha));
     }
 
-    // nazwa strefy / lokacji
     if (game.bannerTimer > 0.0f)
         drawCentered(game.banner, 50, 3.0f, glm::vec4(1.0f, 0.95f, 0.8f, std::min(1.0f, game.bannerTimer)), in.width);
 
-    // pasek informacyjny u góry
     std::string info = "F1 pomoc   " + game.level().loc.title;
     if (game.wireframe) info += "   [SIATKA]";
     if (game.freeCamera) info += "   [WOLNA KAMERA]";
-    if (game.showLights) {   // tryb debug: także pozycja gracza (przydatna przy edycji map)
+    if (game.showLights) {   // pozycja gracza przydaje się przy wpisywaniu obiektów do map
         char pos[64];
         std::snprintf(pos, sizeof(pos), "   [ŚWIATŁA]   x %.1f  z %.1f", game.player.pos.x, game.player.pos.z);
         info += pos;
@@ -233,10 +222,8 @@ void drawDead(const Input& in) {
 
 } // namespace
 
-// ===========================================================================
-// Funkcje publiczne
-// ===========================================================================
 int levelIndex(const std::string& mapFile) {
+    // 2 = liczba lokacji. Dodasz trzecią a dostaniesz po łapach i zapomnisz o tej dwójce.
     for (int i = 0; i < 2; ++i)
         if (game.levels[i].loc.file == mapFile) return i;
     return -1;
@@ -275,9 +262,7 @@ void newGame() {
         level.monsters.clear();
         level.npcs.clear();
         level.items.clear();
-        // [etap 2] spawnLevelItems(level);
-        // [etap 3] spawnLevelMonsters(level);
-        // [etap 4] spawnLevelNpcs(level);
+        // spawnowanie przedmiotów itp. [etap 2] [etap 3] [etap 4]
     }
     showBanner(loc.title);
     addMessage("Witaj w dolinie! F1 pokazuje sterowanie.");
@@ -286,7 +271,7 @@ void newGame() {
 void gameUpdate(Input& in, float dt) {
     Game& g = game;
     g.time += dt;
-    if (g.screen == Screen::Play) g.bannerTimer = std::max(0.0f, g.bannerTimer - dt);   // pauza nie zjada banera
+    if (g.screen == Screen::Play) g.bannerTimer = std::max(0.0f, g.bannerTimer - dt);   // pauza nie zjada banera lol
     g.player.hurtTimer = std::max(0.0f, g.player.hurtTimer - dt);
     for (Message& m : g.messages) m.age += dt;
     while (!g.messages.empty() && g.messages.front().age > 8.0f) g.messages.erase(g.messages.begin());
@@ -295,7 +280,7 @@ void gameUpdate(Input& in, float dt) {
 
     switch (g.screen) {
     case Screen::Help: {
-        // Q = wyjście; każdy inny klawisz (także Esc) lub klik = powrót do gry. Klawisze F działają jako debug.
+        // pressed[] ma tylko ASCII, więc klawisze F (poza F1) nie zamykają pomocy i zostają dla debugu
         bool anyKey = in.lmbClick || in.specialPressed[GLUT_KEY_F1];
         for (int k = 0; k < 256; ++k) anyKey |= in.pressed[k];
         if (in.pressed['q']) g.quit = true;
@@ -309,8 +294,8 @@ void gameUpdate(Input& in, float dt) {
         }
         if (in.pressed['q']) g.quit = true;
         break;
-    case Screen::Inventory:   // [etap 2] updateInventoryScreen(in);
-    case Screen::Dialog:      // [etap 4] updateDialogScreen(in);
+    case Screen::Inventory:   // [etap 2]
+    case Screen::Dialog:      // [etap 4]
         if (in.pressed[27]) g.screen = Screen::Play;
         break;
     case Screen::Play:
@@ -318,16 +303,16 @@ void gameUpdate(Input& in, float dt) {
             g.screen = Screen::Help;
             break;
         }
-        // [etap 2] if (in.pressed['i']) { g.screen = Screen::Inventory; break; }
+        // [etap 2]
         if (g.freeCamera) {
             updateFreeCamera(in, dt);
         } else {
             updatePlayer(in, dt);
             updateInteraction(in);
             updateZone();
-            // [etap 3] if (in.lmbClick || in.pressed[' ']) playerAttack();
+            // [etap 3]
         }
-        // [etap 3] updateMonsters(dt);
+        // [etap 3]
         if (g.player.hp <= 0) g.screen = Screen::Dead;
         break;
     }
@@ -340,7 +325,7 @@ void gameDraw(const Input& in) {
     SceneSettings scene = loc.scene;
     scene.time = game.time;
     PointLight lantern = lanternLight();
-    loc.collectLights(cam.pos, game.time, MAX_LIGHTS - 1, scene.lights);
+    loc.collectLights(cam.pos, game.time, MAX_LIGHTS - 1, scene.lights);   // ostatnie miejsce dla latarni
     scene.lights.push_back(lantern);
 
     setWireframe(game.wireframe);
@@ -352,7 +337,7 @@ void gameDraw(const Input& in) {
     loc.drawTransparent();
     if (game.showLights) {
         loc.drawLightMarkers();
-        // latarnia gracza: mały znacznik pod kamerą (widać go, patrząc w dół), w wolnej kamerze większy
+        // latarnia wisi tuż pod kamerą, więc znacznik musi być malutki (widać go, patrząc w dół)
         glm::vec3 color = glm::normalize(lantern.color) * 1.5f;
         drawLightMarker(lantern.pos, color, game.freeCamera ? 0.18f : 0.03f);
     }

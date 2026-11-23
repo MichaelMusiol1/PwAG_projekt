@@ -1,5 +1,5 @@
 // font8x8.h - czcionka bitmapowa interfejsu (tylko dane).
-// Znaki ASCII 32..126 pochodza z font8x8_basic (Daniel Hepper, na bazie fontow VGA IBM;
+// Znaki ASCII 32..126 "pożyczone" z font8x8_basic (Daniel Hepper, na bazie fontow VGA IBM);
 // domena publiczna: https://github.com/dhepper/font8x8). Polskie litery dorysowane.
 // Kazdy znak to komorka 8x10: 10 wierszy po 8 pikseli, bit 0 = lewy piksel.
 // Wiersze 0-1 to miejsce na akcenty wielkich liter, wiersz 9 na ogonki.

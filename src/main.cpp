@@ -1,5 +1,3 @@
-// main.cpp - platforma: okno freeglut z kontekstem OpenGL 3.3 core, zamiana zdarzeń GLUT
-// (klawiatura, mysz) na strukturę Input, pętla gry i licznik FPS w tytule okna (jak w lab3).
 #include "game.h"
 
 #include <algorithm>
@@ -16,7 +14,6 @@ Input gInput;
 int gLastTime = 0, gFpsTime = 0, gFpsFrames = 0;
 bool gMouseCaptured = false;
 
-// Tryb rozglądania: kursor ukryty i trzymany na środku okna
 void setMouseCapture(bool capture) {
     if (capture == gMouseCaptured) return;
     gMouseCaptured = capture;
@@ -26,6 +23,7 @@ void setMouseCapture(bool capture) {
 
 void display() {
     int now = glutGet(GLUT_ELAPSED_TIME);
+    // limit 0.1 s: po zacięciu (np. przy przeciąganiu okna) gracz nie przeskoczy przez ścianę
     float dt = std::min((now - gLastTime) / 1000.0f, 0.1f);
     gLastTime = now;
 
@@ -38,7 +36,6 @@ void display() {
     glutSwapBuffers();
     setMouseCapture(gameWantsMouseCapture());
 
-    // zdarzenia "w tej klatce" już obsłużone
     std::memset(gInput.pressed, 0, sizeof(gInput.pressed));
     std::memset(gInput.specialPressed, 0, sizeof(gInput.specialPressed));
     gInput.mouseDX = gInput.mouseDY = 0.0f;
@@ -55,7 +52,7 @@ void display() {
 }
 
 void idle() {
-    // ograniczenie do ok. 150 klatek/s - bez tego gra zajmowałaby cały rdzeń procesora
+    // ok. 150 klatek/s - bez tego gra zjada cały rdzeń, a laptop robi za suszarkę (przynajmniej u mnie)
     if (glutGet(GLUT_ELAPSED_TIME) - gLastTime < 6) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         return;
@@ -104,7 +101,7 @@ void mouseMove(int x, int y) {
     gInput.mouseY = y;
     if (!gMouseCaptured) return;
     int cx = gInput.width / 2, cy = gInput.height / 2;
-    if (x == cx && y == cy) return;   // zdarzenie wywołane przez glutWarpPointer
+    if (x == cx && y == cy) return;   // to zdarzenie wywołał nasz własny glutWarpPointer
     gInput.mouseDX += float(x - cx);
     gInput.mouseDY += float(y - cy);
     glutWarpPointer(cx, cy);
@@ -115,7 +112,7 @@ void mouseMove(int x, int y) {
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitContextVersion(3, 3);
-    glutInitContextProfile(GLUT_CORE_PROFILE);   // brak stałego potoku - tylko shadery
+    glutInitContextProfile(GLUT_CORE_PROFILE);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutInitWindowSize(1280, 720);
     glutCreateWindow(WINDOW_TITLE);

@@ -1,15 +1,14 @@
-:; # ============================================================================
-:; # build.cmd - buduje gre.   Windows: dwuklik albo "build.cmd".   Linux: "sh build.cmd"
-:; # Ten sam plik dziala w cmd.exe i w sh: cmd.exe traktuje linie zaczynajace sie
-:; # od ":;" jak etykiety (pomija je), a sh wykonuje je jak zwykle polecenia.
-:; # ============================================================================
+:; # Windows: dwuklik albo "build.cmd".   Linux: "sh build.cmd"
+:; # Ten sam plik dziala w cmd.exe i w sh: cmd.exe traktuje linie zaczynajace sie od ":;"
+:; # jak etykiety (pomija je), a sh wykonuje je jak zwykle polecenia. Wyglada dziwnie, ale tak musi byc.
+:; # Konce linii musza zostac LF (pilnuje tego .gitattributes) - sh nie znosi CRLF.
 :; cd "$(dirname "$0")" || exit 1
 :; command -v cmake >/dev/null || { echo "[BLAD] Brak CMake. Instrukcja instalacji: README.md"; exit 1; }
 :; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release || exit 1
 :; cmake --build build --parallel "$(nproc 2>/dev/null || echo 4)" || exit 1
 :; echo "Gotowe: bin/gra   (uruchom: sh run.cmd)"; exit 0
 @echo off
-rem ---------------------------- Windows ----------------------------------------
+rem Dalej juz tylko cmd.exe - sh skonczyl na exit powyzej.
 setlocal
 cd /d "%~dp0"
 set "PAUSE_CMD=pause"

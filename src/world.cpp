@@ -1,6 +1,4 @@
-// world.cpp - implementacja lokacji (opis w world.h).
-// Format plików map: data/maps/*.txt - jedna komenda w linii, '#' rozpoczyna komentarz
-// (poza siatką krypty). Opis komend znajduje się na początku każdego pliku mapy.
+// Opis komend map jest na początku każdego pliku w data/maps/.
 #include "world.h"
 
 #include <algorithm>
@@ -12,7 +10,7 @@
 
 namespace {
 
-// Znaki siatki krypty, które oznaczają postacie i przedmioty
+// Znaki siatki krypty oznaczające postacie i przedmioty powinno działać (przynajmniej mam nadzieję)
 struct LegendEntry { char symbol; const char* kind; const char* type; };
 const LegendEntry LEGEND[] = {
     {'r', "monster", "szczur"},        {'g', "monster", "goblin"},
@@ -24,7 +22,7 @@ const LegendEntry LEGEND[] = {
 
 void addQuad(std::vector<Vertex>& v, std::vector<unsigned>& idx, glm::vec3 a, glm::vec3 b, glm::vec3 c,
              glm::vec3 d, glm::vec3 normal, glm::vec2 uvA, glm::vec2 uvC) {
-    // a = lewy dół, b = prawy dół, c = prawy górny, d = lewy górny
+    // a = lewy dół, b = prawy dół, c = prawy górny, d = lewy górny (patrząc od strony normalnej)
     unsigned base = unsigned(v.size());
     v.push_back({a, normal, {uvA.x, uvA.y}});
     v.push_back({b, normal, {uvC.x, uvA.y}});
@@ -127,7 +125,7 @@ bool Location::load(const std::string& mapFile) {
         } else if (cmd == "exit") {
             s >> exitTarget >> exitPos.x >> exitPos.y >> exitYaw;
         } else if (cmd == "grid") {
-            while (std::getline(in, line)) {   // reszta pliku to siatka (bez komentarzy)
+            while (std::getline(in, line)) {   // reszta pliku to siatka - tu # jest ścianą, nie komentarzem
                 if (!line.empty() && line.back() == '\r') line.pop_back();
                 grid.push_back(line);
             }
@@ -137,7 +135,6 @@ bool Location::load(const std::string& mapFile) {
     }
 
     if (!outdoor) {
-        // Znaki specjalne siatki: start, wyjścia, pochodnie, koksowniki, kolumny, postacie i przedmioty
         for (int j = 0; j < int(grid.size()); ++j)
             for (int i = 0; i < int(grid[j].size()); ++i) {
                 char c = grid[j][i];
@@ -146,9 +143,9 @@ bool Location::load(const std::string& mapFile) {
                     start = center;
                 } else if (c == 'E') {
                     portals.push_back({center, cell * 0.5f, exitTarget, exitPos, exitYaw});
-                } else if (c == 'T') {   // pochodnia na najbliższej ścianie - nie blokuje przejścia
+                } else if (c == 'T') {   // wisi na sąsiedniej ścianie, więc nie blokuje przejścia
                     addWallTorch(i, j);
-                } else if (c == 'K') {   // wolnostojący koksownik (do środka dużych sal)
+                } else if (c == 'K') {   // stoi na środku pola - tylko w dużych salach, nie w przejściach bo dam po łapach
                     addProp("koksownik.obj", "koksownik.bmp", center, 0.0f, 1.0f, "0.4", 0.9f);
                     lights.push_back({{center.x, 2.2f, center.y}, {1.4f, 0.8f, 0.4f}, 13.0f, true});
                 } else if (c == 'P') {
@@ -157,6 +154,7 @@ bool Location::load(const std::string& mapFile) {
                     p.texture = &getTexture("kolumna.bmp");
                     p.pos = center;
                     p.radius = 0.6f;
+                    // model kolumny ma 3.5 m, rozciągamy go do wysokości sufitu trochę przez to dziwnie wygląda lol
                     p.model = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(center.x, 0.0f, center.y)),
                                          glm::vec3(1.0f, ceiling / 3.5f, 1.0f));
                     props.push_back(p);
@@ -166,15 +164,15 @@ bool Location::load(const std::string& mapFile) {
                 }
             }
         buildDungeon();
-        scene.sunColor = glm::vec3(0.0f);   // pod ziemią nie ma słońca
+        scene.sunColor = glm::vec3(0.0f);   // pod ziemią nie ma słońca duuhh
     }
     std::printf("Mapa %s: %zu obiektow, %zu swiatel, %zu postaci/przedmiotow\n", mapFile.c_str(),
                 props.size(), lights.size(), spawns.size());
     return true;
 }
 
-// Obiekt z pliku mapy. Kolizja: liczba = promień okręgu, "AxB" = prostokąt A x B metrów
-// (wzdłuż osi X i Z modelu, przed skalowaniem i obrotem), "0" = bez kolizji.
+// Kolizja: liczba = promień okręgu, "AxB" = prostokąt A x B metrów (osie X i Z modelu,
+// przed skalowaniem i obrotem), "0" = bez kolizji.
 void Location::addProp(const std::string& model, const std::string& tex, glm::vec2 pos, float yaw, float scale,
                        const std::string& collision, float emissive) {
     Prop p;
@@ -182,7 +180,7 @@ void Location::addProp(const std::string& model, const std::string& tex, glm::ve
     p.texture = &getTexture(tex);
     p.pos = pos;
     p.emissive = emissive;
-    p.angle = glm::radians(-yaw);
+    p.angle = glm::radians(-yaw);   // minus, bo w mapie 90 = wschód, a glm::rotate kręci w drugą stronę
     float w = 0, d = 0;
     if (std::sscanf(collision.c_str(), "%fx%f", &w, &d) == 2) p.halfSize = glm::vec2(w, d) * 0.5f * scale;
     else p.radius = float(std::atof(collision.c_str()));
@@ -202,7 +200,7 @@ void Location::addProp(const std::string& model, const std::string& tex, glm::ve
     props.push_back(p);
 }
 
-// Pochodnia w krypcie: zawieszona na ścianie sąsiadującej z komórką (i, j), ogień skierowany do środka
+// Pierwsza ściana obok komórki (i, j), ogień skierowany do środka komórki
 void Location::addWallTorch(int i, int j) {
     const int dirs[4][2] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};   // północ, wschód, południe, zachód
     glm::vec2 center((i + 0.5f) * cell, (j + 0.5f) * cell);
@@ -218,7 +216,6 @@ void Location::addWallTorch(int i, int j) {
     std::printf("[UWAGA] %s: pochodnia w komorce (%d, %d) nie ma obok sciany\n", file.c_str(), i, j);
 }
 
-// Heightmapa (szarości) -> siatka terenu z normalnymi, VBO + IBO
 bool Location::loadTerrain(const std::string& heightmap, const std::string& splatFile, const std::string layerFiles[4]) {
     splat = &getTexture(splatFile);
     for (int i = 0; i < 4; ++i) layers[i] = &getTexture(layerFiles[i]);
@@ -226,7 +223,7 @@ bool Location::loadTerrain(const std::string& heightmap, const std::string& spla
     std::vector<unsigned char> rgba;
     if (!loadBMP("data/textures/" + heightmap, gridW, gridH, rgba)) {
         std::printf("[UWAGA] Brak heightmapy %s - teren plaski\n", heightmap.c_str());
-        gridW = gridH = 2;
+        gridW = gridH = 2;   // płasko jak na Mazowszu
         rgba.assign(16, 0);
     }
     spacing = size / float(gridW - 1);
@@ -260,7 +257,7 @@ bool Location::loadTerrain(const std::string& heightmap, const std::string& spla
     return true;
 }
 
-// Siatka krypty -> trzy siatki (ściany, podłoga, sufit); tylko ściany graniczące z podłogą
+// Ściany tylko tam, gdzie graniczą z podłogą - reszty i tak nikt nie zobaczy lmao
 void Location::buildDungeon() {
     std::vector<Vertex> wv, fv, cv;
     std::vector<unsigned> wi, fi, ci;
@@ -284,7 +281,7 @@ void Location::buildDungeon() {
 
 bool Location::isWall(int i, int j) const {
     if (j < 0 || j >= int(grid.size()) || i < 0 || i >= int(grid[j].size())) return true;
-    return grid[j][i] == '#' || grid[j][i] == ' ';
+    return grid[j][i] == '#' || grid[j][i] == ' ';   // spacja = poza kryptą
 }
 
 float Location::groundHeight(float x, float z) const {
@@ -300,12 +297,11 @@ float Location::groundHeight(float x, float z) const {
 }
 
 bool Location::blocked(glm::vec2 p, float r) const {
-    if (outdoor) {   // granice obszaru do chodzenia (komenda bounds), domyślnie cała mapa
+    if (outdoor) {
         glm::vec2 lo = boundsMax.x > 0 ? boundsMin : glm::vec2(0.0f);
         glm::vec2 hi = boundsMax.x > 0 ? boundsMax : glm::vec2(size);
         return p.x < lo.x + r || p.y < lo.y + r || p.x > hi.x - r || p.y > hi.y - r;
     }
-    // krypta: czy koło nachodzi na którąś komórkę-ścianę
     int i0 = int(std::floor((p.x - r) / cell)), i1 = int(std::floor((p.x + r) / cell));
     int j0 = int(std::floor((p.y - r) / cell)), j1 = int(std::floor((p.y + r) / cell));
     for (int j = j0; j <= j1; ++j)
@@ -324,16 +320,16 @@ glm::vec3 Location::moveAndCollide(glm::vec3 pos, glm::vec3 delta, float radius)
         glm::vec2 next = p;
         next[axis] += axis == 0 ? delta.x : delta.z;
         float step = std::abs(next[axis] - p[axis]);
+        // ponad 1.2 m w górę na metr (ok. 50 stopni) to już ściana
         bool tooSteep = groundHeight(next.x, next.y) - groundHeight(p.x, p.y) > step * 1.2f + 0.001f;
         if (!blocked(next, radius) && !tooSteep) p = next;
     }
-    // obiekty: wypchnięcie poza okrąg albo poza obrócony prostokąt
     glm::vec2 beforePush = p;
     for (const Prop& prop : props) {
         if (prop.halfSize.x > 0.0f) {
             float c = std::cos(prop.angle), sn = std::sin(prop.angle);
             glm::vec2 d = p - prop.pos;
-            glm::vec2 local(d.x * c - d.y * sn, d.x * sn + d.y * c);   // świat -> układ prostokąta
+            glm::vec2 local(d.x * c - d.y * sn, d.x * sn + d.y * c);   // w układzie prostokąta
             glm::vec2 closest = glm::clamp(local, -prop.halfSize, prop.halfSize);
             glm::vec2 diff = local - closest;
             float dist = glm::length(diff);
@@ -352,7 +348,7 @@ glm::vec3 Location::moveAndCollide(glm::vec3 pos, glm::vec3 delta, float radius)
             if (dist < minDist) p = prop.pos + (dist > 0.0001f ? d / dist : glm::vec2(1, 0)) * minDist;
         }
     }
-    if (blocked(p, radius)) p = beforePush;
+    if (blocked(p, radius)) p = beforePush;   // obiekt nie może wypchnąć gracza w ścianę
     return {p.x, groundHeight(p.x, p.y), p.y};
 }
 
@@ -383,12 +379,13 @@ const Portal* Location::portalNear(glm::vec3 pos, float reach) const {
 void Location::collectLights(glm::vec3 center, float time, int maxCount, std::vector<PointLight>& out) const {
     std::vector<std::pair<float, int>> byDistance;
     for (int i = 0; i < int(lights.size()); ++i)
+        // minus zasięg: duże światło trochę dalej liczy się bardziej niż małe tuż obok
         byDistance.push_back({glm::length(lights[i].pos - center) - lights[i].range, i});
     std::sort(byDistance.begin(), byDistance.end());
     for (int k = 0; k < int(byDistance.size()) && k < maxCount; ++k) {
         const WorldLight& l = lights[byDistance[k].second];
         float intensity = 1.0f;
-        if (l.flicker) {   // migotanie ognia: suma dwóch sinusów o różnych częstotliwościach
+        if (l.flicker) {   // dwa sinusy o różnych częstotliwościach - fizyk by płakał, ale wygląda jak ogień
             float seed = float(byDistance[k].second) * 1.7f;
             intensity = 0.85f + 0.08f * std::sin(time * 9.0f + seed) + 0.07f * std::sin(time * 23.0f + seed * 2.3f);
         }
@@ -399,7 +396,7 @@ void Location::collectLights(glm::vec3 center, float time, int maxCount, std::ve
 void Location::draw() const {
     if (outdoor) {
         if (sky) drawSky(*sky);
-        if (terrainMesh.indexCount && splat) drawTerrain(terrainMesh, *splat, layers, size / 4.0f);
+        if (terrainMesh.indexCount && splat) drawTerrain(terrainMesh, *splat, layers, size / 4.0f);   // tekstura co 4 m
     } else if (wallTex && floorTex && ceilingTex) {
         drawMesh(wallMesh, *wallTex, glm::mat4(1.0f), glm::vec3(1.0f), 0.1f);
         drawMesh(floorMesh, *floorTex, glm::mat4(1.0f), glm::vec3(1.0f), 0.2f);

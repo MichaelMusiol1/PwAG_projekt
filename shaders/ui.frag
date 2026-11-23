@@ -1,5 +1,4 @@
 #version 330 core
-// Shader fragmentów interfejsu 2D: tekstura (ikona, litera czcionki lub biały piksel) * kolor.
 
 in vec2 vUV;
 out vec4 fragColor;

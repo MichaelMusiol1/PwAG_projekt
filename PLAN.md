@@ -38,6 +38,7 @@ i z przedmiotów wypadających z potworów.
 
 ## Etap 2 - przedmioty i ekwipunek (`inventory.cpp`)
 
+- (Moje propozycje rozwoju)
 - Przedmioty: sztylet, miecz, topór, zbroja skórzana, kolczuga, mała i duża mikstura, złoto, amulet (do zadania).
 - Przedmioty leżą na ziemi jako ikony, E podnosi najbliższy, złoto od razu trafia do licznika.
 - Ekwipunek 4 x 4 pola, osobne miejsce na broń i zbroję. Atak i obrona zależą od założonych przedmiotów.
@@ -45,6 +46,7 @@ i z przedmiotów wypadających z potworów.
 
 ## Etap 3 - walka (`combat.cpp`)
 
+- (Moje propozycje rozwoju)
 - Potwory: szczur, wilk, goblin, szkielet, boss krypty.
 - Zachowanie: stoi lub chodzi przy swoim miejscu, goni gracza, gdy go zobaczy, atakuje z bliska,
   wraca, gdy gracz ucieknie.
@@ -55,6 +57,7 @@ i z przedmiotów wypadających z potworów.
 
 ## Etap 4 - NPC, dialogi, zadanie (`dialog.cpp`)
 
+- (Moje propozycje rozwoju)
 - NPC w dolinie: sołtys (daje zadanie), zielarka (leczy, raz daje miksturę), strażnik przy krypcie.
 - Rozmowa w oknie na dole ekranu: portret, tekst i opcje wybierane klawiszami 1-4.
 - Zadanie "Amulet sołtysa": boss krypty ma amulet, po jego oddaniu sołtys daje nagrodę.
@@ -62,6 +65,7 @@ i z przedmiotów wypadających z potworów.
 
 ## Etap 5 - wersja finalna
 
+- (Moje propozycje rozwoju)
 - Pełne przejście gry na Windowsie i Linuxie, poprawki, balans.
 - Raport końcowy: opis projektu, specyfikacja wewnętrzna (moduły i najważniejsze funkcje), instrukcja obsługi,
   opis testów ze zrzutami ekranu, wnioski. Na liście narzędzi bez Dear ImGui (nie jest używany),
